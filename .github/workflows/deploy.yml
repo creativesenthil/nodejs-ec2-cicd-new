@@ -23,12 +23,11 @@ jobs:
     - name: Run Automated Tests
       run: npm test
 
-    - name: Deploy Application to EC2
+    - name: Deploy Application with PM2
       run: |
         mkdir -p /home/ec2-user/nodejs-app
         cp -r * /home/ec2-user/nodejs-app/
         cd /home/ec2-user/nodejs-app
-        pkill -f "node app.js" || true
-        nohup node app.js > app.log 2>&1 < /dev/null &
-        sleep 2
+        pm2 restart "nodejs-poc-app" || pm2 start app.js --name "nodejs-poc-app"
+        pm2 save
         curl -s http://localhost:3000
