@@ -9,25 +9,38 @@ jobs:
     runs-on: self-hosted
 
     steps:
-    - name: Checkout Code
-      uses: actions/checkout@v4
+      - name: Checkout Code
+        uses: actions/checkout@v4
 
-    - name: Set up Node.js
-      run: |
-        node -v
-        npm -v
+      - name: Set up Node.js
+        run: |
+          node -v
+          npm -v
 
-    - name: Install Dependencies
-      run: npm install
+      - name: Install Dependencies
+        run: npm install
 
-    - name: Run Automated Tests
-      run: npm test
+      - name: Run Automated Tests
+        run: npm test
 
-    - name: Deploy Application with PM2
-      run: |
-        mkdir -p /home/ec2-user/nodejs-app
-        cp -r * /home/ec2-user/nodejs-app/
-        cd /home/ec2-user/nodejs-app
-        pm2 restart "nodejs-poc-app" || pm2 start app.js --name "nodejs-poc-app"
-        pm2 save
-        curl -s http://localhost:3000
+      - name: Deploy Application with PM2
+        run: |
+          mkdir -p /home/ec2-user/nodejs-app
+          cp -a "$GITHUB_WORKSPACE"/. /home/ec2-user/nodejs-app/
+          cd /home/ec2-user/nodejs-app
+          npm install --omit=dev
+
+          pm2 restart nodejs-poc-app --update-env || pm2 start app.js --name nodejs-poc-app
+          pm2 save
+
+          for i in $(seq 1 15); do
+            if curl -fsS http://localhost:3000/ >/dev/null; then
+              echo "App is up"
+              exit 0
+            fi
+            echo "Waiting for app... ($i)"
+            sleep 2
+          done
+          echo "App did not start"
+          pm2 logs nodejs-poc-app --lines 30 --nostream
+          exit 1
